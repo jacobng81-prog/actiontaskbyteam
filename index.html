@@ -175,84 +175,201 @@
   @media (prefers-reduced-motion: no-preference) {
     .btn, .box, li.item { transition: background-color .15s, filter .15s; }
   }
+
+  [hidden] { display: none !important; }
+
+  /* Account bar */
+  .acct { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .acct .who { color: var(--muted); font-size: 1rem; min-width: 0; overflow-wrap: anywhere; }
+  .acct .who b { color: var(--ink); font-weight: 600; }
+  .acct .btns { display: flex; gap: 8px; }
+  .link { padding: 8px 14px; }
+  .link:hover { background: var(--line); }
+
+  /* Sign in */
+  .login { max-width: 440px; width: 100%; margin-inline: auto; }
+  form.stack { grid-template-columns: 1fr; }
+  .login h2 { font-size: 1.4rem; }
+  .login p.hint { margin: -6px 0 16px; color: var(--muted); font-size: 1rem; }
+  select {
+    font: inherit; font-size: 1.1rem; color: var(--ink); background: var(--field);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; width: 100%; min-width: 0;
+  }
+  select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  input[type="password"] {
+    font: inherit; font-size: 1.1rem; color: var(--ink); background: var(--field);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; width: 100%; min-width: 0;
+  }
+  input[type="password"]:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* Team */
+  .team h3.mini { margin: 22px 0 12px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .team h3.mini:first-of-type { margin-top: 0; }
+  .members { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .member { background: var(--field); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 1rem; }
+  .member span { font-family: var(--font-data); font-size: 0.8rem; color: var(--muted); margin-left: 8px; }
+  .msg { font-size: 0.95rem; min-height: 1.3em; overflow-wrap: anywhere; }
+  .msg.ok { color: var(--ink); }
+  .msg.bad { color: var(--late); }
+  .team .fine { margin: 10px 0 0; color: var(--muted); font-size: 0.9rem; }
+  .appcol { display: flex; flex-direction: column; gap: 20px; }
 </style>
 </head>
 <body>
-
 <div class="wrap">
   <header>
     <div class="top">
       <div class="today" id="today"></div>
-      <div class="sync" id="sync"><span class="dot"></span><span id="syncText">Connecting to Supabase</span></div>
+      <div class="sync" id="sync" hidden><span class="dot"></span><span id="syncText">Connecting to Supabase</span></div>
     </div>
     <h1>Action Tracker</h1>
     <p class="sub">Every action from the meeting gets an owner and a date, so nothing slips.</p>
   </header>
 
-  <div class="status bad" id="status" role="status" hidden>
-    <p id="statusMsg"></p>
-    <button class="link" id="statusBtn" type="button" hidden></button>
-  </div>
-
-  <section class="stats" aria-label="Summary">
-    <div class="stat open"><div class="n" id="nOpen">0</div><div class="l">Open</div></div>
-    <div class="stat done"><div class="n" id="nDone">0</div><div class="l">Done</div></div>
-    <div class="stat late" id="lateCard"><div class="n" id="nLate">0</div><div class="l">Overdue</div></div>
-  </section>
-
-  <section class="card" aria-labelledby="addH">
-    <h2 id="addH">Add an action</h2>
-    <form id="form" novalidate>
-      <div class="field wide">
-        <label class="lab" for="what">Action</label>
-        <input type="text" id="what" autocomplete="off" maxlength="300" placeholder="e.g. Send the revised quote to the client">
+  <!-- Sign in -->
+  <section class="card login" id="loginView" aria-labelledby="loginH" hidden>
+    <h2 id="loginH">Sign in</h2>
+    <p class="hint">Use the username and password your team gave you.</p>
+    <form id="loginForm" class="stack" novalidate>
+      <div class="field">
+        <label class="lab" for="loginUser">Username</label>
+        <input type="text" id="loginUser" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="30">
       </div>
       <div class="field">
-        <label class="lab" for="owner">Owner</label>
-        <input type="text" id="owner" list="owners" autocomplete="off" maxlength="80" placeholder="Who is doing it?">
-        <datalist id="owners"></datalist>
-      </div>
-      <div class="field">
-        <label class="lab" for="due">Due date</label>
-        <input type="date" id="due">
+        <label class="lab" for="loginPass">Password</label>
+        <input type="password" id="loginPass" autocomplete="current-password" maxlength="72">
       </div>
       <div class="row-end">
-        <button class="btn" id="addBtn" type="submit">Add action</button>
-        <span class="err" id="err" role="alert"></span>
+        <button class="btn" id="loginBtn" type="submit">Sign in</button>
+        <span class="err" id="loginErr" role="alert"></span>
       </div>
     </form>
   </section>
 
-  <div class="note" id="note" hidden>
-    <span>These are example actions so you can see how it works.</span>
-    <button class="link" id="clearEx" type="button">Clear examples</button>
-  </div>
-
-  <div class="bar">
-    <div class="seg" role="group" aria-label="Filter actions">
-      <button type="button" data-f="all" aria-pressed="true">All</button>
-      <button type="button" data-f="open" aria-pressed="false">Open</button>
-      <button type="button" data-f="late" aria-pressed="false">Overdue</button>
+  <!-- Signed in -->
+  <div class="acct" id="acct" hidden>
+    <div class="who">Signed in as <b id="whoami"></b></div>
+    <div class="btns">
+      <button class="link" id="teamBtn" type="button" aria-expanded="false" aria-controls="teamCard">Team</button>
+      <button class="link" id="signOutBtn" type="button">Sign out</button>
     </div>
-    <button class="link" id="refresh" type="button">Refresh</button>
   </div>
 
-  <main class="owners" id="list"></main>
+  <section class="card team" id="teamCard" aria-labelledby="teamH" hidden>
+    <h2 id="teamH">Team</h2>
+
+    <h3 class="mini">Members</h3>
+    <ul class="members" id="members"></ul>
+
+    <h3 class="mini">Add a user</h3>
+    <form id="userForm" novalidate>
+      <div class="field">
+        <label class="lab" for="newUser">Username</label>
+        <input type="text" id="newUser" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="30" placeholder="e.g. sam">
+      </div>
+      <div class="field">
+        <label class="lab" for="newName">Display name</label>
+        <input type="text" id="newName" autocomplete="off" maxlength="60" placeholder="e.g. Sam">
+      </div>
+      <div class="field wide">
+        <label class="lab" for="newPass">Initial password</label>
+        <input type="password" id="newPass" autocomplete="new-password" maxlength="72" placeholder="At least 8 characters">
+      </div>
+      <div class="row-end">
+        <button class="btn" id="addUserBtn" type="submit">Add user</button>
+        <span class="msg" id="userMsg" role="status"></span>
+      </div>
+    </form>
+    <p class="fine">Share the initial password with the person directly. They can change it here after they sign in.</p>
+
+    <h3 class="mini">Change my password</h3>
+    <form id="pwForm" novalidate>
+      <div class="field wide">
+        <label class="lab" for="newPw">New password</label>
+        <input type="password" id="newPw" autocomplete="new-password" maxlength="72" placeholder="At least 8 characters">
+      </div>
+      <div class="row-end">
+        <button class="btn" id="pwBtn" type="submit">Update password</button>
+        <span class="msg" id="pwMsg" role="status"></span>
+      </div>
+    </form>
+  </section>
+
+  <div id="appView" hidden>
+    <div class="appcol">
+      <div class="status bad" id="status" role="status" hidden>
+        <p id="statusMsg"></p>
+        <button class="link" id="statusBtn" type="button" hidden></button>
+      </div>
+
+      <section class="stats" aria-label="Summary">
+        <div class="stat open"><div class="n" id="nOpen">0</div><div class="l">Open</div></div>
+        <div class="stat done"><div class="n" id="nDone">0</div><div class="l">Done</div></div>
+        <div class="stat late" id="lateCard"><div class="n" id="nLate">0</div><div class="l">Overdue</div></div>
+      </section>
+
+      <section class="card" aria-labelledby="addH">
+        <h2 id="addH">Add an action</h2>
+        <form id="form" novalidate>
+          <div class="field wide">
+            <label class="lab" for="what">Action</label>
+            <input type="text" id="what" autocomplete="off" maxlength="300" placeholder="e.g. Send the revised quote to the client">
+          </div>
+          <div class="field">
+            <label class="lab" for="owner">Owner</label>
+            <select id="owner"></select>
+          </div>
+          <div class="field">
+            <label class="lab" for="due">Due date</label>
+            <input type="date" id="due">
+          </div>
+          <div class="row-end">
+            <button class="btn" id="addBtn" type="submit">Add action</button>
+            <span class="err" id="err" role="alert"></span>
+          </div>
+        </form>
+      </section>
+
+      <div class="note" id="note" hidden>
+        <span>These are example actions so you can see how it works.</span>
+        <button class="link" id="clearEx" type="button">Clear examples</button>
+      </div>
+
+      <div class="bar">
+        <div class="seg" role="group" aria-label="Filter actions">
+          <button type="button" data-f="all" aria-pressed="true">All</button>
+          <button type="button" data-f="open" aria-pressed="false">Open</button>
+          <button type="button" data-f="late" aria-pressed="false">Overdue</button>
+        </div>
+        <button class="link" id="refresh" type="button">Refresh</button>
+      </div>
+
+      <main class="owners" id="list"></main>
+    </div>
+  </div>
 </div>
 
 <script>
 (function () {
-  // Live data: public.meeting_actions in Supabase, called over the REST API.
-  // The publishable key is designed to be public. What it can do is set by the
-  // row level security policies in supabase/policies.sql.
+  // Supabase project. The publishable key is designed to be public: what it can do
+  // is limited by row level security, and signed-in team members are the only ones
+  // who can read or change actions.
   var SUPABASE_URL = "https://qomnizbqhyafrrgofikm.supabase.co";
   var SUPABASE_KEY = "sb_publishable_6KMqvUtSuyLN8hZGnaUDwA_eB4dKqAE";
-  var API = SUPABASE_URL + "/rest/v1/meeting_actions";
+  var REST = SUPABASE_URL + "/rest/v1";
+  var AUTH = SUPABASE_URL + "/auth/v1";
+  var FN = SUPABASE_URL + "/functions/v1";
+  // Usernames are stored as <username>@EMAIL_DOMAIN in Supabase Auth. No email is ever sent.
+  var EMAIL_DOMAIN = "actiontracker.app";
+  var SESSION_KEY = "action-tracker-session-v1";
 
+  var session = null;
   var items = [];
+  var people = [];
   var loaded = false;
   var filter = "all";
   var busy = false;
+  var poll = null;
 
   function pad(n) { return n < 10 ? "0" + n : "" + n; }
   function iso(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
@@ -261,6 +378,7 @@
   function dayNum(s) { var p = s.split("-"); return Math.round(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 86400000); }
   function diffDays(s) { return dayNum(s) - dayNum(todayIso()); }
   function isLate(a) { return !a.done && diffDays(a.due) < 0; }
+  function nowSec() { return Math.floor(Date.now() / 1000); }
 
   var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -280,9 +398,13 @@
   var $ = function (id) { return document.getElementById(id); };
   var el = {
     list: $("list"), nOpen: $("nOpen"), nDone: $("nDone"), nLate: $("nLate"), lateCard: $("lateCard"),
-    note: $("note"), owners: $("owners"), what: $("what"), owner: $("owner"), due: $("due"), err: $("err"),
+    note: $("note"), owner: $("owner"), what: $("what"), due: $("due"), err: $("err"),
     status: $("status"), statusMsg: $("statusMsg"), statusBtn: $("statusBtn"),
-    sync: $("sync"), syncText: $("syncText"), addBtn: $("addBtn"), clearEx: $("clearEx"), refresh: $("refresh")
+    sync: $("sync"), syncText: $("syncText"), addBtn: $("addBtn"), clearEx: $("clearEx"), refresh: $("refresh"),
+    loginView: $("loginView"), loginUser: $("loginUser"), loginPass: $("loginPass"), loginBtn: $("loginBtn"), loginErr: $("loginErr"),
+    appView: $("appView"), acct: $("acct"), whoami: $("whoami"), teamBtn: $("teamBtn"), teamCard: $("teamCard"),
+    members: $("members"), newUser: $("newUser"), newName: $("newName"), newPass: $("newPass"), addUserBtn: $("addUserBtn"), userMsg: $("userMsg"),
+    newPw: $("newPw"), pwBtn: $("pwBtn"), pwMsg: $("pwMsg")
   };
 
   function make(tag, cls, text) {
@@ -294,26 +416,118 @@
 
   var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   var DATE = /^\d{4}-\d{2}-\d{2}$/;
+  var USERNAME = /^[a-z0-9_]{2,30}$/;
 
-  /* ---------- Supabase REST ---------- */
-  function api(method, query, body) {
-    var headers = { apikey: SUPABASE_KEY, "Content-Type": "application/json" };
-    if (method !== "GET") headers.Prefer = "return=minimal";
-    return fetch(API + query, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined })
-      .then(function (res) {
-        if (res.ok) return method === "GET" ? res.json() : null;
-        return res.text().then(function (t) {
-          var msg = t;
-          try { msg = JSON.parse(t).message || t; } catch (e) {}
-          var err = new Error(msg || res.statusText);
-          err.status = res.status;
-          throw err;
-        });
-      }, function () {
-        var err = new Error("Network error");
-        err.status = 0;
-        throw err;
+  /* ---------- HTTP ---------- */
+  function httpError(res, text) {
+    var msg = text;
+    try { var j = JSON.parse(text); msg = j.error_description || j.msg || j.message || j.error || text; } catch (e) {}
+    var err = new Error(msg || res.statusText);
+    err.status = res.status;
+    return err;
+  }
+  function request(url, opts) {
+    return fetch(url, opts).then(function (res) {
+      return res.text().then(function (t) {
+        if (res.ok) { try { return t ? JSON.parse(t) : null; } catch (e) { return null; } }
+        throw httpError(res, t);
       });
+    }, function () {
+      var e = new Error("Network error");
+      e.status = 0;
+      throw e;
+    });
+  }
+  function signedOutError() { var e = new Error("Signed out"); e.status = 401; e.signedOut = true; return e; }
+
+  /* ---------- session ---------- */
+  function readStored() {
+    try {
+      var s = JSON.parse(localStorage.getItem(SESSION_KEY));
+      return s && s.access_token && s.refresh_token ? s : null;
+    } catch (e) { return null; }
+  }
+  function keep(s) {
+    var u = s.user || (session && session.user) || {};
+    session = {
+      access_token: s.access_token,
+      refresh_token: s.refresh_token,
+      expires_at: s.expires_at || (nowSec() + (s.expires_in || 3600)),
+      user: { id: u.id, app_metadata: u.app_metadata || {}, user_metadata: u.user_metadata || {} }
+    };
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch (e) {}
+  }
+  function isTeamMember(s) { return !!(s && s.user && s.user.app_metadata && s.user.app_metadata.team_member === true); }
+
+  function ensureToken() {
+    if (!session) return Promise.reject(signedOutError());
+    if (session.expires_at - nowSec() > 60) return Promise.resolve(session.access_token);
+    return request(AUTH + "/token?grant_type=refresh_token", {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    }).then(function (s) { keep(s); return session.access_token; }, function (e) {
+      if (e.status === 0) throw e;
+      endSession("Your session expired. Sign in again.");
+      throw signedOutError();
+    });
+  }
+
+  function authed(url, opts) {
+    return ensureToken().then(function (tok) {
+      opts = opts || {};
+      var h = { apikey: SUPABASE_KEY, Authorization: "Bearer " + tok };
+      Object.keys(opts.headers || {}).forEach(function (k) { h[k] = opts.headers[k]; });
+      opts.headers = h;
+      return request(url, opts).catch(function (e) {
+        if (e.status === 401 && url.indexOf(REST) === 0) {
+          endSession("Your session expired. Sign in again.");
+          throw signedOutError();
+        }
+        throw e;
+      });
+    });
+  }
+  function rest(method, path, body, table) {
+    var h = {};
+    if (body !== undefined) h["Content-Type"] = "application/json";
+    if (method !== "GET") h.Prefer = "return=minimal";
+    return authed(REST + "/" + (table || "meeting_actions") + path, { method: method, headers: h, body: body !== undefined ? JSON.stringify(body) : undefined });
+  }
+
+  /* ---------- views ---------- */
+  function showLogin(msg) {
+    el.appView.hidden = true;
+    el.acct.hidden = true;
+    el.teamCard.hidden = true;
+    el.teamBtn.setAttribute("aria-expanded", "false");
+    el.sync.hidden = true;
+    el.loginView.hidden = false;
+    el.loginErr.textContent = msg || "";
+    el.loginPass.value = "";
+    el.loginBtn.disabled = false;
+    (el.loginUser.value ? el.loginPass : el.loginUser).focus();
+  }
+  function enterApp() {
+    el.loginView.hidden = true;
+    el.appView.hidden = false;
+    el.acct.hidden = false;
+    el.sync.hidden = false;
+    var um = session.user.user_metadata || {};
+    el.whoami.textContent = um.display_name || um.username || "team member";
+    setSync("Connecting to Supabase", false);
+    render();
+    loadPeople();
+    load();
+    if (poll) clearInterval(poll);
+    poll = setInterval(function () { if (!document.hidden && loaded && session) load(); }, 30000);
+  }
+  function endSession(msg) {
+    session = null;
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+    items = []; people = []; loaded = false; busy = false;
+    if (poll) { clearInterval(poll); poll = null; }
+    showLogin(msg);
   }
 
   /* ---------- status / errors ---------- */
@@ -331,21 +545,31 @@
 
   function explain(e) {
     var s = e && e.status;
-    if (s === 401 || s === 403) return "Supabase refused the request. Run supabase/policies.sql in the Supabase SQL editor so this page can read and write the table.";
+    if (s === 403) return "Your account does not have access to the team list. Ask a teammate to add you from the Team panel.";
     if (s === 404) return "The meeting_actions table was not found. Run supabase/setup.sql in the Supabase SQL editor.";
     if (s === 0) return "Could not reach Supabase. Check your connection and try again.";
     return "Supabase rejected the request: " + String((e && e.message) || "unknown error").slice(0, 200);
   }
   function fail(e) {
+    if (e && e.signedOut) return;
     showStatus(explain(e), "Try again", function () { clearStatus(); load(); });
     setSync(loaded ? "Out of date" : "Not connected", false);
   }
 
   /* ---------- data ---------- */
+  function loadPeople() {
+    return rest("GET", "?select=id,username,display_name&order=display_name.asc", undefined, "profiles")
+      .then(function (rows) {
+        people = (rows || []).map(function (r) { return { id: String(r.id), username: String(r.username), name: String(r.display_name) }; });
+        renderPeople();
+      })
+      .catch(function (e) { if (!(e && e.signedOut)) fail(e); });
+  }
+
   function load() {
-    if (busy) return Promise.resolve();
+    if (busy || !session) return Promise.resolve();
     busy = true;
-    return api("GET", "?select=id,what,owner,due,done,is_example&order=owner.asc,due.asc,created_at.asc")
+    return rest("GET", "?select=id,what,owner,owner_id,due,done,is_example&order=owner.asc,due.asc,created_at.asc")
       .then(function (rows) {
         items = (rows || []).map(function (r) {
           return { id: String(r.id), what: String(r.what), owner: String(r.owner), due: String(r.due).slice(0, 10), done: !!r.done, example: !!r.is_example };
@@ -360,13 +584,33 @@
       .then(function () { busy = false; });
   }
 
-  function write(method, query, body) {
+  function write(method, path, body) {
     clearStatus();
-    return api(method, query, body).then(function () { busy = false; return load(); });
+    return rest(method, path, body).then(function () { busy = false; return load(); });
   }
   function writeFail(e) { busy = false; return load().then(function () { fail(e); }); }
 
   /* ---------- render ---------- */
+  function renderPeople() {
+    // owner picker
+    var prev = el.owner.value;
+    el.owner.textContent = "";
+    people.forEach(function (p) {
+      var o = document.createElement("option");
+      o.value = p.id; o.textContent = p.name;
+      el.owner.appendChild(o);
+    });
+    var want = prev && people.some(function (p) { return p.id === prev; }) ? prev : (session && session.user.id);
+    if (want && people.some(function (p) { return p.id === want; })) el.owner.value = want;
+    // member chips
+    el.members.textContent = "";
+    people.forEach(function (p) {
+      var li = make("li", "member", p.name);
+      li.appendChild(make("span", null, "@" + p.username));
+      el.members.appendChild(li);
+    });
+  }
+
   function render() {
     var open = 0, done = 0, late = 0;
     items.forEach(function (a) { if (a.done) done++; else open++; if (isLate(a)) late++; });
@@ -375,11 +619,6 @@
     el.nLate.textContent = late;
     el.lateCard.classList.toggle("has", late > 0);
     el.note.hidden = !items.some(function (a) { return a.example; });
-
-    var names = {};
-    items.forEach(function (a) { names[a.owner] = true; });
-    el.owners.textContent = "";
-    Object.keys(names).sort().forEach(function (n) { var o = document.createElement("option"); o.value = n; el.owners.appendChild(o); });
 
     var vis = items.filter(function (a) {
       if (filter === "open") return !a.done;
@@ -461,20 +700,115 @@
     });
   }
 
-  /* ---------- events ---------- */
-  document.getElementById("form").addEventListener("submit", function (e) {
+  /* ---------- sign in / out ---------- */
+  $("loginForm").addEventListener("submit", function (e) {
     e.preventDefault();
-    var what = el.what.value.trim(), owner = el.owner.value.trim(), due = el.due.value;
+    var username = el.loginUser.value.trim().toLowerCase();
+    var password = el.loginPass.value;
+    if (!username) { el.loginErr.textContent = "Enter your username."; el.loginUser.focus(); return; }
+    if (!password) { el.loginErr.textContent = "Enter your password."; el.loginPass.focus(); return; }
+    el.loginErr.textContent = "";
+    el.loginBtn.disabled = true;
+    request(AUTH + "/token?grant_type=password", {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: username + "@" + EMAIL_DOMAIN, password: password })
+    }).then(function (s) {
+      if (!isTeamMember(s)) {
+        request(AUTH + "/logout?scope=local", { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + s.access_token } }).catch(function () {});
+        var err = new Error("This account is not part of the team.");
+        err.status = 403;
+        throw err;
+      }
+      keep(s);
+      el.loginPass.value = "";
+      enterApp();
+    }).catch(function (err) {
+      var m;
+      if (err.status === 0) m = "Could not reach Supabase. Check your connection.";
+      else if (err.status === 429) m = "Too many attempts. Wait a minute and try again.";
+      else if (err.status === 403) m = err.message;
+      else if (err.status === 400 || err.status === 401) m = "Wrong username or password.";
+      else m = "Could not sign in: " + String(err.message || "unknown error").slice(0, 120);
+      el.loginErr.textContent = m;
+      el.loginBtn.disabled = false;
+      el.loginPass.value = "";
+      el.loginPass.focus();
+    });
+  });
+
+  $("signOutBtn").addEventListener("click", function () {
+    var tok = session && session.access_token;
+    if (tok) request(AUTH + "/logout?scope=local", { method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + tok } }).catch(function () {});
+    el.loginUser.value = "";
+    endSession("You have signed out.");
+  });
+
+  el.teamBtn.addEventListener("click", function () {
+    var open = el.teamCard.hidden;
+    el.teamCard.hidden = !open;
+    el.teamBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) { loadPeople(); el.newUser.focus(); }
+  });
+
+  /* ---------- team: add user, change password ---------- */
+  function setMsg(node, text, kind) { node.textContent = text; node.className = "msg" + (kind ? " " + kind : ""); }
+
+  $("userForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var username = el.newUser.value.trim().toLowerCase();
+    var name = el.newName.value.trim();
+    var pass = el.newPass.value;
+    if (!USERNAME.test(username)) { setMsg(el.userMsg, "Username: 2 to 30 characters, lowercase letters, numbers or underscore.", "bad"); el.newUser.focus(); return; }
+    if (!name) { setMsg(el.userMsg, "Enter a display name.", "bad"); el.newName.focus(); return; }
+    if (pass.length < 8) { setMsg(el.userMsg, "The initial password needs at least 8 characters.", "bad"); el.newPass.focus(); return; }
+    setMsg(el.userMsg, "Adding…");
+    el.addUserBtn.disabled = true;
+    ensureToken().then(function (tok) {
+      return request(FN + "/create-user", {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + tok, "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username, display_name: name, password: pass })
+      });
+    }).then(function () {
+      el.newUser.value = ""; el.newName.value = ""; el.newPass.value = "";
+      setMsg(el.userMsg, "Added " + name + ". They can sign in as " + username + ".", "ok");
+      return loadPeople();
+    }).catch(function (err) {
+      if (err && err.signedOut) return;
+      setMsg(el.userMsg, err.status === 0 ? "Could not reach Supabase." : String(err.message || "Could not add the user.").slice(0, 160), "bad");
+    }).then(function () { el.addUserBtn.disabled = false; });
+  });
+
+  $("pwForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var pw = el.newPw.value;
+    if (pw.length < 8) { setMsg(el.pwMsg, "Use at least 8 characters.", "bad"); el.newPw.focus(); return; }
+    if (pw.toLowerCase() === "password") { setMsg(el.pwMsg, "Choose something other than the default password.", "bad"); el.newPw.focus(); return; }
+    setMsg(el.pwMsg, "Updating…");
+    el.pwBtn.disabled = true;
+    authed(AUTH + "/user", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pw }) })
+      .then(function () { el.newPw.value = ""; setMsg(el.pwMsg, "Password updated.", "ok"); })
+      .catch(function (err) {
+        if (err && err.signedOut) return;
+        setMsg(el.pwMsg, err.status === 0 ? "Could not reach Supabase." : String(err.message || "Could not update the password.").slice(0, 160), "bad");
+      })
+      .then(function () { el.pwBtn.disabled = false; });
+  });
+
+  /* ---------- actions ---------- */
+  $("form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var what = el.what.value.trim(), ownerId = el.owner.value, due = el.due.value;
+    var person = people.filter(function (p) { return p.id === ownerId; })[0];
     if (!what) { el.err.textContent = "Write what needs to be done."; el.what.focus(); return; }
-    if (!owner) { el.err.textContent = "Add an owner so someone is responsible."; el.owner.focus(); return; }
+    if (!person) { el.err.textContent = "Pick an owner so someone is responsible."; el.owner.focus(); return; }
     if (!due || !DATE.test(due)) { el.err.textContent = "Pick a due date."; el.due.focus(); return; }
     if (busy) { el.err.textContent = "Still saving. Try again in a moment."; return; }
-    var match = items.filter(function (a) { return a.owner.toLowerCase() === owner.toLowerCase(); })[0];
-    if (match) owner = match.owner;
     el.err.textContent = "";
     busy = true;
     el.addBtn.disabled = true;
-    write("POST", "", { what: what.slice(0, 300), owner: owner.slice(0, 80), due: due })
+    write("POST", "", { what: what.slice(0, 300), owner: person.name, owner_id: person.id, due: due })
       .then(function () { el.what.value = ""; el.what.focus(); })
       .catch(writeFail)
       .then(function () { el.addBtn.disabled = false; });
@@ -487,7 +821,7 @@
     write("DELETE", "?is_example=eq.true").catch(writeFail).then(function () { el.clearEx.disabled = false; });
   });
 
-  el.refresh.addEventListener("click", function () { clearStatus(); load(); });
+  el.refresh.addEventListener("click", function () { clearStatus(); load(); loadPeople(); });
 
   Array.prototype.forEach.call(document.querySelectorAll(".seg button"), function (b) {
     b.addEventListener("click", function () {
@@ -503,10 +837,10 @@
   var t = new Date();
   $("today").textContent = "Today · " + DAYS[t.getDay()] + " " + t.getDate() + " " + MONTHS[t.getMonth()] + " " + t.getFullYear();
   el.due.value = addDays(7);
-  render();
-  load();
-  // pick up teammates' changes, and move overdue states past midnight
-  setInterval(function () { if (!document.hidden && loaded) load(); }, 30000);
+
+  var stored = readStored();
+  if (stored && isTeamMember(stored)) { session = stored; enterApp(); }
+  else { showLogin(""); }
 })();
 </script>
 </body>

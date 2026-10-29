@@ -1,8 +1,8 @@
 # Action Tracker
 
-A meeting action tracker for teams that keep forgetting what was agreed. Add an action with an owner and a due date, see actions grouped by owner with a tick box, and watch open, done and overdue counts. Overdue actions turn red.
+A meeting action tracker for teams that keep forgetting what was agreed. Team members sign in, add an action with an owner and a due date, tick actions off, and see open, done and overdue counts. Actions are grouped by owner and overdue ones turn red.
 
-It is one static page (`index.html`) that stores its data in Supabase, so everyone sees the same list.
+It is one static page (`index.html`) backed by Supabase: Supabase Auth for sign in, a Postgres table for the data, and one edge function for adding users.
 
 ## Files
 
@@ -10,21 +10,39 @@ It is one static page (`index.html`) that stores its data in Supabase, so everyo
 | --- | --- |
 | `index.html` | The whole app. No build step. |
 | `vercel.json` | Security headers for Vercel, including a policy that only lets the page talk to your Supabase project. |
-| `supabase/setup.sql` | Creates the `meeting_actions` table. |
-| `supabase/policies.sql` | Lets the site read and write the table. Read the warning at the top before running it. |
+| `supabase/setup.sql` | Tables (`meeting_actions`, `profiles`), the link to `auth.users`, and the security rules. |
+| `supabase/seed-users.sql` | Creates the first users: `priya`, `dan`, `marcus`. |
+| `supabase/functions/create-user/index.ts` | Edge function that lets a signed-in team member add a user with an initial password. |
 
-## Set up
+## How sign in works
 
-1. In Supabase, open **SQL Editor** and run `supabase/setup.sql`, then `supabase/policies.sql`. (If the table already exists, only run `policies.sql`.)
-2. In Vercel, choose **Add New > Project**, import this GitHub repo, leave every setting at its default (Framework Preset: **Other**, no build command, no output directory), and deploy.
-3. Open the Vercel address. The corner of the page should say "Live".
+- Users live in Supabase's built-in `auth.users` table, so passwords are stored as hashes by Supabase. The app never stores or sees them.
+- You sign in with a **username**. Behind the scenes it is stored as `<username>@actiontracker.app`. No email is ever sent.
+- `public.profiles` links each auth user to a username and display name. Actions are linked to a user through `meeting_actions.owner_id`.
+- Only accounts marked `team_member` in Supabase Auth can read or change data. Anyone else, including a stranger who registers with the public key, sees nothing.
 
-## Supabase details
+## Sample users
 
-The page uses the project URL and publishable key near the top of the script in `index.html`. The publishable key is meant to be public, and what it can do is controlled by the policies in `supabase/policies.sql`. Never put a `service_role` or secret key in this repo.
+| Username | Initial password |
+| --- | --- |
+| `priya` | `password` |
+| `dan` | `password` |
+| `marcus` | `password` |
 
-If you move to a different Supabase project, change `SUPABASE_URL` and `SUPABASE_KEY` in `index.html` and the host in the `connect-src` part of `vercel.json`.
+`password` is a placeholder. Each person should change it after their first sign in: **Team > Change my password**.
 
-## Who can see the list
+## Set up (new project)
 
-With the included policies, anyone who has the site address can read and change the list. Keep the address within your team, or add Supabase Auth and restrict the policies to signed-in users.
+1. Supabase SQL Editor: run `supabase/setup.sql`, then `supabase/seed-users.sql`.
+2. Deploy the edge function: `supabase functions deploy create-user`. Keep JWT verification on.
+3. Supabase dashboard, **Authentication > Sign In / Providers**: turn off **Allow new users to sign up**. This stops strangers creating accounts, on top of the database rules.
+4. In `index.html`, set `SUPABASE_URL` and `SUPABASE_KEY` (the publishable key) near the top of the script. Update the host in `connect-src` in `vercel.json` to match.
+5. Vercel: **Add New > Project**, import this repo, leave every setting at its default (Framework Preset **Other**, no build command, no output directory), and deploy.
+
+Never put a `service_role` or secret key in this repo. The edge function reads its own key from Supabase.
+
+## Adding users
+
+Open **Team**, enter a username, display name and an initial password (8 characters or more), and press **Add user**. Any signed-in team member can do this. Give the person their initial password directly.
+
+To limit this to certain people, add an `is_admin` flag to `profiles` and check it in `create-user/index.ts`.
