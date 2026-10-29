@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="A shared meeting action tracker: add actions with an owner and due date, tick them off, and see what is overdue.">
+<title>Action Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* Layout: one centred column. Summary counts on top, a single add card, then one card per owner. */
+  :root {
+    --bg: #eceae7;
+    --card: #f7f6f4;
+    --ink: #2b2d31;
+    --muted: #6f7178;
+    --line: #dcd9d4;
+    --field: #ffffff;
+    --accent: #c8561a;
+    --accent-ink: #ffffff;
+    --accent-soft: #f1ddd0;
+    --late: #b3261e;
+    --late-bg: #f6dcd9;
+    --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1c1d20;
+      --card: #25272b;
+      --ink: #ecebe8;
+      --muted: #9a9ca3;
+      --line: #35373c;
+      --field: #1c1d20;
+      --accent: #f28c45;
+      --accent-ink: #1d1410;
+      --accent-soft: #3a2a20;
+      --late: #ff9a90;
+      --late-bg: #3d2523;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1c1d20;
+    --card: #25272b;
+    --ink: #ecebe8;
+    --muted: #9a9ca3;
+    --line: #35373c;
+    --field: #1c1d20;
+    --accent: #f28c45;
+    --accent-ink: #1d1410;
+    --accent-soft: #3a2a20;
+    --late: #ff9a90;
+    --late-bg: #3d2523;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 18px;
+    line-height: 1.45;
+    padding-block: 40px 72px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 720px; margin-inline: auto; display: flex; flex-direction: column; gap: 20px; }
+  h1 { font-size: 2.4rem; line-height: 1.1; margin: 0; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
+  .sub { margin: 8px 0 0; color: var(--muted); font-size: 1.05rem; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .today { font-family: var(--font-data); font-size: 0.85rem; color: var(--muted); }
+  .sync { font-family: var(--font-data); font-size: 0.8rem; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .sync.live .dot { background: var(--accent); }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+
+  /* Counts */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; min-width: 0; }
+  .stat .n { font-size: 2.6rem; font-weight: 700; line-height: 1; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .stat .l { margin-top: 6px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .stat.open .n { color: var(--accent); }
+  .stat.late.has { background: var(--late-bg); border-color: transparent; }
+  .stat.late.has .n, .stat.late.has .l { color: var(--late); }
+
+  /* Add form */
+  .card h2 { margin: 0 0 14px; font-size: 1.15rem; font-weight: 700; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .field.wide { grid-column: 1 / -1; }
+  label.lab { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  input[type="text"], input[type="date"] {
+    font: inherit; font-size: 1.1rem; color: var(--ink); background: var(--field);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; width: 100%; min-width: 0;
+  }
+  input[type="date"] { font-family: var(--font-data); font-size: 1rem; }
+  input:focus-visible, button:focus-visible, .check input:focus-visible + .box {
+    outline: 3px solid var(--accent); outline-offset: 2px;
+  }
+  .row-end { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .btn {
+    font: inherit; font-weight: 600; font-size: 1.1rem; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 10px; padding: 12px 24px;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn[disabled] { opacity: .55; cursor: default; }
+  .err { color: var(--late); font-size: 0.95rem; min-height: 1.3em; }
+
+  /* Connection status */
+  .status { border-radius: 12px; padding: 14px 16px; background: var(--accent-soft); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .status.bad { background: var(--late-bg); color: var(--late); }
+  .status p { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+  /* Filters */
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .seg { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg button {
+    font: inherit; font-size: 0.95rem; font-weight: 600; color: var(--muted); background: transparent;
+    border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); }
+
+  .note {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    background: var(--accent-soft); border-radius: 12px; padding: 12px 16px; font-size: 0.95rem;
+  }
+  .link { font: inherit; font-weight: 600; font-size: 0.95rem; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  .link[disabled] { opacity: .55; cursor: default; }
+
+  /* Owner cards */
+  .owners { display: flex; flex-direction: column; gap: 16px; }
+  .owner-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-weight: 700; font-size: 1.1rem; flex: none;
+  }
+  .owner-name { font-size: 1.35rem; font-weight: 700; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .owner-meta { margin-left: auto; font-family: var(--font-data); font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  li.item { display: flex; align-items: flex-start; gap: 14px; padding: 12px; border-radius: 10px; }
+  li.item.late { background: var(--late-bg); }
+  .check { position: relative; flex: none; margin-top: 2px; cursor: pointer; }
+  .check input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .box { display: block; width: 28px; height: 28px; border: 2px solid var(--muted); border-radius: 8px; background: var(--field); }
+  .check input:checked + .box {
+    background: var(--accent); border-color: var(--accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+    background-size: 78%; background-position: center; background-repeat: no-repeat;
+  }
+  .body { flex: 1; min-width: 0; }
+  .what { font-size: 1.2rem; font-weight: 500; overflow-wrap: anywhere; }
+  li.item.done .what { text-decoration: line-through; color: var(--muted); }
+  .due { margin-top: 2px; font-family: var(--font-data); font-size: 0.9rem; color: var(--muted); }
+  li.item.late .due { color: var(--late); font-weight: 500; }
+  .rm { flex: none; font: inherit; font-size: 0.85rem; color: var(--muted); background: transparent; border: 0; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+  .rm:hover { color: var(--ink); background: var(--line); }
+  .rm.sure { color: var(--late); font-weight: 600; }
+
+  .empty { text-align: center; color: var(--muted); padding: 28px 12px; }
+
+  @media (max-width: 520px) {
+    body { font-size: 17px; padding-block: 28px 56px; }
+    h1 { font-size: 2rem; }
+    form { grid-template-columns: 1fr; }
+    .stat { padding: 14px; }
+    .stat .n { font-size: 2.1rem; }
+    .stat .l { font-size: 0.7rem; }
+    .card { padding: 18px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .btn, .box, li.item { transition: background-color .15s, filter .15s; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="top">
+      <div class="today" id="today"></div>
+      <div class="sync" id="sync"><span class="dot"></span><span id="syncText">Connecting to Supabase</span></div>
+    </div>
+    <h1>Action Tracker</h1>
+    <p class="sub">Every action from the meeting gets an owner and a date, so nothing slips.</p>
+  </header>
+
+  <div class="status bad" id="status" role="status" hidden>
+    <p id="statusMsg"></p>
+    <button class="link" id="statusBtn" type="button" hidden></button>
+  </div>
+
+  <section class="stats" aria-label="Summary">
+    <div class="stat open"><div class="n" id="nOpen">0</div><div class="l">Open</div></div>
+    <div class="stat done"><div class="n" id="nDone">0</div><div class="l">Done</div></div>
+    <div class="stat late" id="lateCard"><div class="n" id="nLate">0</div><div class="l">Overdue</div></div>
+  </section>
+
+  <section class="card" aria-labelledby="addH">
+    <h2 id="addH">Add an action</h2>
+    <form id="form" novalidate>
+      <div class="field wide">
+        <label class="lab" for="what">Action</label>
+        <input type="text" id="what" autocomplete="off" maxlength="300" placeholder="e.g. Send the revised quote to the client">
+      </div>
+      <div class="field">
+        <label class="lab" for="owner">Owner</label>
+        <input type="text" id="owner" list="owners" autocomplete="off" maxlength="80" placeholder="Who is doing it?">
+        <datalist id="owners"></datalist>
+      </div>
+      <div class="field">
+        <label class="lab" for="due">Due date</label>
+        <input type="date" id="due">
+      </div>
+      <div class="row-end">
+        <button class="btn" id="addBtn" type="submit">Add action</button>
+        <span class="err" id="err" role="alert"></span>
+      </div>
+    </form>
+  </section>
+
+  <div class="note" id="note" hidden>
+    <span>These are example actions so you can see how it works.</span>
+    <button class="link" id="clearEx" type="button">Clear examples</button>
+  </div>
+
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Filter actions">
+      <button type="button" data-f="all" aria-pressed="true">All</button>
+      <button type="button" data-f="open" aria-pressed="false">Open</button>
+      <button type="button" data-f="late" aria-pressed="false">Overdue</button>
+    </div>
+    <button class="link" id="refresh" type="button">Refresh</button>
+  </div>
+
+  <main class="owners" id="list"></main>
+</div>
+
+<script>
+(function () {
+  // Live data: public.meeting_actions in Supabase, called over the REST API.
+  // The publishable key is designed to be public. What it can do is set by the
+  // row level security policies in supabase/policies.sql.
+  var SUPABASE_URL = "https://qomnizbqhyafrrgofikm.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_6KMqvUtSuyLN8hZGnaUDwA_eB4dKqAE";
+  var API = SUPABASE_URL + "/rest/v1/meeting_actions";
+
+  var items = [];
+  var loaded = false;
+  var filter = "all";
+  var busy = false;
+
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function iso(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function addDays(n) { var d = new Date(); d.setDate(d.getDate() + n); return iso(d); }
+  function todayIso() { return iso(new Date()); }
+  function dayNum(s) { var p = s.split("-"); return Math.round(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 86400000); }
+  function diffDays(s) { return dayNum(s) - dayNum(todayIso()); }
+  function isLate(a) { return !a.done && diffDays(a.due) < 0; }
+
+  var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  function pretty(s) {
+    var p = s.split("-"); var d = new Date(+p[0], +p[1] - 1, +p[2]);
+    return DAYS[d.getDay()] + " " + d.getDate() + " " + MONTHS[d.getMonth()];
+  }
+  function dueText(a) {
+    var n = diffDays(a.due);
+    if (a.done) return "Was due " + pretty(a.due);
+    if (n < 0) return "Overdue by " + (-n) + (n === -1 ? " day" : " days") + " · " + pretty(a.due);
+    if (n === 0) return "Due today · " + pretty(a.due);
+    if (n === 1) return "Due tomorrow · " + pretty(a.due);
+    return "Due " + pretty(a.due);
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var el = {
+    list: $("list"), nOpen: $("nOpen"), nDone: $("nDone"), nLate: $("nLate"), lateCard: $("lateCard"),
+    note: $("note"), owners: $("owners"), what: $("what"), owner: $("owner"), due: $("due"), err: $("err"),
+    status: $("status"), statusMsg: $("statusMsg"), statusBtn: $("statusBtn"),
+    sync: $("sync"), syncText: $("syncText"), addBtn: $("addBtn"), clearEx: $("clearEx"), refresh: $("refresh")
+  };
+
+  function make(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  var DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+  /* ---------- Supabase REST ---------- */
+  function api(method, query, body) {
+    var headers = { apikey: SUPABASE_KEY, "Content-Type": "application/json" };
+    if (method !== "GET") headers.Prefer = "return=minimal";
+    return fetch(API + query, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined })
+      .then(function (res) {
+        if (res.ok) return method === "GET" ? res.json() : null;
+        return res.text().then(function (t) {
+          var msg = t;
+          try { msg = JSON.parse(t).message || t; } catch (e) {}
+          var err = new Error(msg || res.statusText);
+          err.status = res.status;
+          throw err;
+        });
+      }, function () {
+        var err = new Error("Network error");
+        err.status = 0;
+        throw err;
+      });
+  }
+
+  /* ---------- status / errors ---------- */
+  function showStatus(msg, btnLabel, btnFn) {
+    el.status.hidden = false;
+    el.statusMsg.textContent = msg;
+    if (btnLabel) {
+      el.statusBtn.hidden = false;
+      el.statusBtn.textContent = btnLabel;
+      el.statusBtn.onclick = btnFn;
+    } else { el.statusBtn.hidden = true; el.statusBtn.onclick = null; }
+  }
+  function clearStatus() { el.status.hidden = true; }
+  function setSync(text, live) { el.syncText.textContent = text; el.sync.classList.toggle("live", !!live); }
+
+  function explain(e) {
+    var s = e && e.status;
+    if (s === 401 || s === 403) return "Supabase refused the request. Run supabase/policies.sql in the Supabase SQL editor so this page can read and write the table.";
+    if (s === 404) return "The meeting_actions table was not found. Run supabase/setup.sql in the Supabase SQL editor.";
+    if (s === 0) return "Could not reach Supabase. Check your connection and try again.";
+    return "Supabase rejected the request: " + String((e && e.message) || "unknown error").slice(0, 200);
+  }
+  function fail(e) {
+    showStatus(explain(e), "Try again", function () { clearStatus(); load(); });
+    setSync(loaded ? "Out of date" : "Not connected", false);
+  }
+
+  /* ---------- data ---------- */
+  function load() {
+    if (busy) return Promise.resolve();
+    busy = true;
+    return api("GET", "?select=id,what,owner,due,done,is_example&order=owner.asc,due.asc,created_at.asc")
+      .then(function (rows) {
+        items = (rows || []).map(function (r) {
+          return { id: String(r.id), what: String(r.what), owner: String(r.owner), due: String(r.due).slice(0, 10), done: !!r.done, example: !!r.is_example };
+        });
+        loaded = true;
+        clearStatus();
+        var t = new Date();
+        setSync("Live · updated " + pad(t.getHours()) + ":" + pad(t.getMinutes()), true);
+        render();
+      })
+      .catch(fail)
+      .then(function () { busy = false; });
+  }
+
+  function write(method, query, body) {
+    clearStatus();
+    return api(method, query, body).then(function () { busy = false; return load(); });
+  }
+  function writeFail(e) { busy = false; return load().then(function () { fail(e); }); }
+
+  /* ---------- render ---------- */
+  function render() {
+    var open = 0, done = 0, late = 0;
+    items.forEach(function (a) { if (a.done) done++; else open++; if (isLate(a)) late++; });
+    el.nOpen.textContent = open;
+    el.nDone.textContent = done;
+    el.nLate.textContent = late;
+    el.lateCard.classList.toggle("has", late > 0);
+    el.note.hidden = !items.some(function (a) { return a.example; });
+
+    var names = {};
+    items.forEach(function (a) { names[a.owner] = true; });
+    el.owners.textContent = "";
+    Object.keys(names).sort().forEach(function (n) { var o = document.createElement("option"); o.value = n; el.owners.appendChild(o); });
+
+    var vis = items.filter(function (a) {
+      if (filter === "open") return !a.done;
+      if (filter === "late") return isLate(a);
+      return true;
+    });
+
+    var groups = {};
+    vis.forEach(function (a) { (groups[a.owner] = groups[a.owner] || []).push(a); });
+    var keys = Object.keys(groups).sort(function (x, y) { return x.toLowerCase() < y.toLowerCase() ? -1 : 1; });
+
+    el.list.textContent = "";
+    if (!loaded) {
+      el.list.appendChild(make("div", "card empty", "Loading actions from Supabase…"));
+      return;
+    }
+    if (!keys.length) {
+      var msg = items.length === 0 ? "No actions yet. Add the first one above."
+        : filter === "late" ? "Nothing is overdue." : "Nothing to show here.";
+      el.list.appendChild(make("div", "card empty", msg));
+      return;
+    }
+
+    keys.forEach(function (name) {
+      var arr = groups[name].slice().sort(function (x, y) {
+        if (x.done !== y.done) return x.done ? 1 : -1;
+        return x.due < y.due ? -1 : x.due > y.due ? 1 : 0;
+      });
+      var openCount = arr.filter(function (a) { return !a.done; }).length;
+
+      var card = make("section", "card");
+      var head = make("div", "owner-head");
+      head.appendChild(make("div", "avatar", name.charAt(0).toUpperCase()));
+      head.appendChild(make("h3", "owner-name", name));
+      head.appendChild(make("div", "owner-meta", openCount + " open · " + (arr.length - openCount) + " done"));
+      card.appendChild(head);
+
+      var ul = document.createElement("ul");
+      arr.forEach(function (a) {
+        var li = make("li", "item" + (a.done ? " done" : "") + (isLate(a) ? " late" : ""));
+
+        var lab = make("label", "check");
+        var cb = document.createElement("input");
+        cb.type = "checkbox"; cb.checked = a.done;
+        cb.setAttribute("aria-label", "Mark done: " + a.what);
+        cb.addEventListener("change", function () {
+          if (!UUID.test(a.id) || busy) { cb.checked = a.done; return; }
+          var next = cb.checked;
+          a.done = next; render();
+          busy = true;
+          write("PATCH", "?id=eq." + encodeURIComponent(a.id), { done: next }).catch(writeFail);
+        });
+        lab.appendChild(cb);
+        lab.appendChild(make("span", "box"));
+        li.appendChild(lab);
+
+        var body = make("div", "body");
+        body.appendChild(make("div", "what", a.what));
+        body.appendChild(make("div", "due", dueText(a)));
+        li.appendChild(body);
+
+        var rm = make("button", "rm", "Remove");
+        rm.type = "button";
+        rm.addEventListener("click", function () {
+          if (rm.classList.contains("sure")) {
+            if (!UUID.test(a.id) || busy) return;
+            busy = true;
+            write("DELETE", "?id=eq." + encodeURIComponent(a.id)).catch(writeFail);
+          } else {
+            rm.classList.add("sure"); rm.textContent = "Sure?";
+            setTimeout(function () { rm.classList.remove("sure"); rm.textContent = "Remove"; }, 3000);
+          }
+        });
+        li.appendChild(rm);
+        ul.appendChild(li);
+      });
+      card.appendChild(ul);
+      el.list.appendChild(card);
+    });
+  }
+
+  /* ---------- events ---------- */
+  document.getElementById("form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var what = el.what.value.trim(), owner = el.owner.value.trim(), due = el.due.value;
+    if (!what) { el.err.textContent = "Write what needs to be done."; el.what.focus(); return; }
+    if (!owner) { el.err.textContent = "Add an owner so someone is responsible."; el.owner.focus(); return; }
+    if (!due || !DATE.test(due)) { el.err.textContent = "Pick a due date."; el.due.focus(); return; }
+    if (busy) { el.err.textContent = "Still saving. Try again in a moment."; return; }
+    var match = items.filter(function (a) { return a.owner.toLowerCase() === owner.toLowerCase(); })[0];
+    if (match) owner = match.owner;
+    el.err.textContent = "";
+    busy = true;
+    el.addBtn.disabled = true;
+    write("POST", "", { what: what.slice(0, 300), owner: owner.slice(0, 80), due: due })
+      .then(function () { el.what.value = ""; el.what.focus(); })
+      .catch(writeFail)
+      .then(function () { el.addBtn.disabled = false; });
+  });
+
+  el.clearEx.addEventListener("click", function () {
+    if (busy) return;
+    busy = true;
+    el.clearEx.disabled = true;
+    write("DELETE", "?is_example=eq.true").catch(writeFail).then(function () { el.clearEx.disabled = false; });
+  });
+
+  el.refresh.addEventListener("click", function () { clearStatus(); load(); });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".seg button"), function (b) {
+    b.addEventListener("click", function () {
+      filter = b.getAttribute("data-f");
+      Array.prototype.forEach.call(document.querySelectorAll(".seg button"), function (x) {
+        x.setAttribute("aria-pressed", x === b ? "true" : "false");
+      });
+      render();
+    });
+  });
+
+  /* ---------- start ---------- */
+  var t = new Date();
+  $("today").textContent = "Today · " + DAYS[t.getDay()] + " " + t.getDate() + " " + MONTHS[t.getMonth()] + " " + t.getFullYear();
+  el.due.value = addDays(7);
+  render();
+  load();
+  // pick up teammates' changes, and move overdue states past midnight
+  setInterval(function () { if (!document.hidden && loaded) load(); }, 30000);
+})();
+</script>
+</body>
+</html>
